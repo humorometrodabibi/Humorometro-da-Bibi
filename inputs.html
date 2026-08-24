@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inputs · Humorômetro da Bibi</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%80%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">💗</div>
+      <div class="brand-text">
+        <strong>Humorômetro</strong>
+        <span>da Bibi</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html"><span class="ic">🌷</span><span class="lbl">Início</span></a>
+      <a href="inputs.html"><span class="ic">🎀</span><span class="lbl">Inputs</span></a>
+      <a href="historico.html"><span class="ic">📖</span><span class="lbl">Histórico</span></a>
+    </nav>
+    <div class="sidebar-note">
+      Aqui você cria os humores, escolhe o gif e o som de cada um. Nada fica travado no código ♡
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <section class="hero" style="text-align:left">
+      <span class="eyebrow">Central de carinho</span>
+      <h1 style="font-size:clamp(34px,6vw,54px);line-height:1.02">Inputs</h1>
+      <p class="lead" style="margin:12px 0 0">Cadastre os humores, a imagem/gif/vídeo e o som de cada um. O que você salvar aqui aparece na página inicial na hora.</p>
+    </section>
+
+    <!-- ====== FORMULÁRIO ====== -->
+    <section class="card" style="margin-top:24px">
+      <div class="card-head">
+        <div>
+          <h2 id="formTitle">Novo humor</h2>
+          <p class="card-sub" id="formSub">Preencha os campos e salve. Depois é só editar quando quiser.</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="btnReset" hidden>Cancelar edição</button>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <div class="field">
+            <label for="fName">Nome do humor</label>
+            <input class="input" id="fName" placeholder="Ex.: Apaixonada" maxlength="28">
+          </div>
+
+          <div class="field">
+            <label for="fEmoji">Emoji</label>
+            <input class="input" id="fEmoji" placeholder="🥰" maxlength="4" style="max-width:110px;font-size:22px;text-align:center">
+            <div class="row-inline" style="margin-top:10px" id="emojiSuggest"></div>
+          </div>
+
+          <div class="field">
+            <label>Cor do cartão</label>
+            <div class="swatches" id="swatches"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="field">
+            <label>Imagem, GIF ou vídeo</label>
+            <div class="seg" id="segMedia">
+              <button type="button" data-kind="url" class="is-on">Link (URL)</button>
+              <button type="button" data-kind="file">Arquivo do meu PC</button>
+            </div>
+
+            <div id="mediaUrlWrap" style="margin-top:12px">
+              <input class="input" id="fMediaUrl" placeholder="https://... (.gif, .jpg, .png, .mp4)">
+              <p class="hint">Dica: no Tenor ou Giphy, clique com o botão direito no gif → “Copiar endereço da imagem”.</p>
+            </div>
+
+            <div id="mediaFileWrap" style="margin-top:12px" hidden>
+              <input class="input" id="fMediaFile" type="file" accept="image/*,video/*">
+              <p class="hint">Arquivos ficam salvos no navegador. Prefira até ~1 MB para não estourar o espaço.</p>
+            </div>
+
+            <div class="mini-preview" id="mediaPreview" style="margin-top:12px">
+              <span class="placeholder">a prévia aparece aqui</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Som do humor</label>
+            <div class="seg" id="segSound">
+              <button type="button" data-kind="url" class="is-on">Link (URL)</button>
+              <button type="button" data-kind="file">Arquivo do meu PC</button>
+            </div>
+
+            <div id="soundUrlWrap" style="margin-top:12px">
+              <input class="input" id="fSoundUrl" placeholder="https://....mp3">
+            </div>
+
+            <div id="soundFileWrap" style="margin-top:12px" hidden>
+              <input class="input" id="fSoundFile" type="file" accept="audio/*">
+              <p class="hint">Mesma dica: áudios curtinhos (poucos segundos) funcionam melhor.</p>
+            </div>
+
+            <div class="row-inline" style="margin-top:12px">
+              <button class="btn btn-sm" type="button" id="btnTestSound">▶ Testar som</button>
+              <span class="hint" id="soundName"></span>
+            </div>
+            <audio id="testAudio" preload="none"></audio>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-inline" style="margin-top:8px">
+        <button class="btn btn-primary" id="btnSave" style="font-size:15px;padding:13px 30px">Salvar humor ♡</button>
+      </div>
+    </section>
+
+    <!-- ====== LISTA ====== -->
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Humores cadastrados</h2>
+          <p class="card-sub" id="countSub"></p>
+        </div>
+        <div class="row-inline">
+          <button class="btn btn-sm btn-ghost" id="btnExport">⬇ Backup</button>
+          <button class="btn btn-sm btn-ghost" id="btnImport">⬆ Restaurar</button>
+          <input type="file" id="importFile" accept="application/json" hidden>
+        </div>
+      </div>
+      <div class="mood-list" id="moodList"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal de confirmação -->
+<div class="overlay" id="confirmOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-emoji">🥺</div>
+    <h3 style="text-align:center;margin-top:10px" id="confirmTitle">Apagar este humor?</h3>
+    <p class="card-sub" style="text-align:center" id="confirmText">Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="btn btn-sm btn-ghost" id="confirmNo">Não, deixa</button>
+      <button class="btn btn-sm btn-danger" id="confirmYes">Sim, apagar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/inputs.js"></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Histórico · Humorômetro da Bibi</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">💗</div>
+      <div class="brand-text">
+        <strong>Humorômetro</strong>
+        <span>da Bibi</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html"><span class="ic">🌷</span><span class="lbl">Início</span></a>
+      <a href="inputs.html"><span class="ic">🎀</span><span class="lbl">Inputs</span></a>
+      <a href="historico.html"><span class="ic">📖</span><span class="lbl">Histórico</span></a>
+    </nav>
+    <div class="sidebar-note">
+      Cada registro guarda data, hora, humor, o gif e o pedidinho dela ♡
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <section class="hero" style="text-align:left">
+      <span class="eyebrow">Diário do coração</span>
+      <h1 style="font-size:clamp(34px,6vw,54px);line-height:1.02">Histórico</h1>
+      <p class="lead" style="margin:12px 0 0">Todos os humores registrados, com o recadinho de cada dia.</p>
+    </section>
+
+    <div class="stats" id="stats" style="margin-top:24px"></div>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Registros</h2>
+          <p class="card-sub" id="filterSub">Do mais recente para o mais antigo.</p>
+        </div>
+        <div class="row-inline">
+          <select class="input" id="filterMood" style="width:auto;padding:9px 14px"></select>
+          <button class="btn btn-sm btn-danger" id="btnClear">Limpar tudo</button>
+        </div>
+      </div>
+      <div id="timeline"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="overlay" id="confirmOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-emoji">🥺</div>
+    <h3 style="text-align:center;margin-top:10px" id="confirmTitle">Apagar tudo?</h3>
+    <p class="card-sub" style="text-align:center" id="confirmText">Todos os registros serão perdidos.</p>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="btn btn-sm btn-ghost" id="confirmNo">Não, deixa</button>
+      <button class="btn btn-sm btn-danger" id="confirmYes">Sim, apagar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/historico.js"></script>
+</body>
+</html>

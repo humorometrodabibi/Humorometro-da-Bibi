@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Humorômetro da Bibi</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%97%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ MENU LATERAL ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">💗</div>
+      <div class="brand-text">
+        <strong>Humorômetro</strong>
+        <span>da Bibi</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html"><span class="ic">🌷</span><span class="lbl">Início</span></a>
+      <a href="inputs.html"><span class="ic">🎀</span><span class="lbl">Inputs</span></a>
+      <a href="historico.html"><span class="ic">📖</span><span class="lbl">Histórico</span></a>
+    </nav>
+    <div class="sidebar-note">
+      Escolhe um humor, aperta <strong>Enviar</strong> e deixa a mágica acontecer ✨
+    </div>
+  </aside>
+
+  <!-- ============ CONTEÚDO ============ -->
+  <main class="main">
+
+    <!-- Título arqueado -->
+    <section class="hero">
+      <svg class="arch" viewBox="0 0 660 190" role="img" aria-label="Humorômetro da Bibi">
+        <defs>
+          <path id="archPath" d="M 34 168 Q 330 6 626 168" fill="none"></path>
+          <path id="archPathShadow" d="M 38 173 Q 334 11 630 173" fill="none"></path>
+        </defs>
+        <g class="arch-shadow">
+          <text><textPath href="#archPathShadow" startOffset="50%" text-anchor="middle">Humorômetro</textPath></text>
+        </g>
+        <text><textPath href="#archPath" startOffset="50%" text-anchor="middle">Humorômetro</textPath></text>
+      </svg>
+      <div class="sticker">da Bibi ♡</div>
+      <p class="lead">Como você está se sentindo <em>agorinha</em>? Escolhe o seu humor de hoje.</p>
+    </section>
+
+    <!-- Seleção de humor -->
+    <section class="card" style="margin-top:26px">
+      <div class="card-head">
+        <div>
+          <span class="eyebrow">Passo 1</span>
+          <h2>Escolhe o seu humor</h2>
+          <p class="card-sub">Toca no que combina mais com você neste momento.</p>
+        </div>
+      </div>
+
+      <div class="mood-grid" id="moodGrid"></div>
+
+      <div class="send-row">
+        <button class="btn btn-primary" id="btnSend" disabled>Enviar 💌</button>
+      </div>
+    </section>
+
+    <!-- Palco da mídia -->
+    <section class="card stage" id="stageCard">
+      <div class="card-head">
+        <div>
+          <span class="eyebrow">Passo 2</span>
+          <h2>O momento especial</h2>
+        </div>
+      </div>
+      <div class="stage-frame is-empty" id="stageFrame">
+        <div class="stage-empty" id="stageEmpty">
+          <span class="big">🎁</span>
+          Escolhe um humor e aperta <strong>Enviar</strong> para a surpresa aparecer aqui.
+        </div>
+      </div>
+      <p class="stage-caption" id="stageCaption" hidden></p>
+      <audio id="moodAudio" preload="none"></audio>
+    </section>
+
+    <p class="hint" style="text-align:center;margin-top:18px" id="lastNote"></p>
+  </main>
+</div>
+
+<!-- ============ MODAL DA MENSAGEM ============ -->
+<div class="overlay" id="msgOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="msgTitle">
+    <div class="modal-emoji" id="msgEmoji">💌</div>
+    <h3 id="msgTitle" style="text-align:center;margin-top:10px">O que seu namorado pode fazer para melhorar seu dia?</h3>
+    <p class="card-sub" style="text-align:center">Pode ser qualquer coisa: um abraço, um doce, um filme, silêncio... só escreve 💕</p>
+    <div class="field" style="margin-top:18px">
+      <label for="msgText">Seu pedidinho</label>
+      <textarea class="input" id="msgText" placeholder="Hoje eu queria muito..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="msgSkip">Deixa pra depois</button>
+      <button class="btn btn-primary" id="msgSave" style="font-size:15px;padding:13px 28px">Enviar carinho ♡</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
