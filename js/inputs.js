@@ -1,17 +1,34 @@
 /* ============================================================
-   inputs.js — cadastro e edição dos humores
+   inputs.js — cadastro e edição dos humores (na nuvem)
    ============================================================ */
+
+import {
+  start, ouvirHumores, criarHumor, atualizarHumor, apagarHumor,
+  criarHumoresSugeridos, importarDoNavegador, TINTS,
+} from './cloud.js';
+import {
+  markActiveNav, showToast, escapeHtml, buildMediaEl, fileToDataURL,
+} from './ui.js';
 
 const EMOJI_SUGGESTIONS = ['😊','🥰','🥺','😴','😤','😰','🤒','🥳','🫠','😍','🙃','😭','🤗','🌷','✨'];
 
-let editingId = null;                       // id do humor sendo editado (null = novo)
-let mediaKind = 'url', soundKind = 'url';   // modo escolhido nos botões
-let mediaDraft = null, soundDraft = null;   // objetos temporários antes de salvar
-let pendingDelete = null;
-
 const el = id => document.getElementById(id);
 
-/* ---------- Sugestões de emoji e cores ---------- */
+let moods = [];
+let editingId = null;
+let mediaKind = 'url', soundKind = 'url';
+let mediaDraft = null, soundDraft = null;
+let pendingDelete = null;
+
+markActiveNav();
+buildPickers();
+resetForm();
+
+start(() => {
+  ouvirHumores(lista => { moods = lista; renderList(); });
+});
+
+/* ---------- Seletores de emoji e cor ---------- */
 function buildPickers() {
   const wrap = el('emojiSuggest');
   EMOJI_SUGGESTIONS.forEach(e => {
@@ -24,7 +41,7 @@ function buildPickers() {
   });
 
   const sw = el('swatches');
-  Store.TINTS.forEach((c, i) => {
+  TINTS.forEach((c, i) => {
     const s = document.createElement('button');
     s.type = 'button';
     s.className = 'swatch' + (i === 0 ? ' is-on' : '');
@@ -40,7 +57,7 @@ function buildPickers() {
 
 function selectedTint() {
   const on = el('swatches').querySelector('.swatch.is-on');
-  return on ? on.dataset.color : Store.TINTS[0];
+  return on ? on.dataset.color : TINTS[0];
 }
 
 function setTint(color) {
@@ -54,7 +71,7 @@ function setTint(color) {
   if (!found && swatches[0]) swatches[0].classList.add('is-on');
 }
 
-/* ---------- Alternância Link / Arquivo ---------- */
+/* ---------- Link / Arquivo ---------- */
 function wireSeg(segId, onChange) {
   el(segId).querySelectorAll('button').forEach(b => {
     b.addEventListener('click', () => {
@@ -69,6 +86,7 @@ wireSeg('segMedia', kind => {
   mediaKind = kind;
   el('mediaUrlWrap').hidden = kind !== 'url';
   el('mediaFileWrap').hidden = kind !== 'file';
+  renderPreview();
 });
 
 wireSeg('segSound', kind => {
@@ -81,21 +99,11 @@ function setSegActive(segId, kind) {
   el(segId).querySelectorAll('button').forEach(b => b.classList.toggle('is-on', b.dataset.kind === kind));
 }
 
-/* ---------- Tipo de mídia a partir da URL / arquivo ---------- */
+/* ---------- Prévia ---------- */
 function guessType(value, mime) {
   if (mime && mime.startsWith('video')) return 'video';
   if (/\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(value || '')) return 'video';
   return 'image';
-}
-
-/* ---------- Prévia ---------- */
-function renderPreview() {
-  const box = el('mediaPreview');
-  box.innerHTML = '';
-  const media = currentMediaDraft();
-  const node = buildMediaEl(media);
-  if (node) box.appendChild(node);
-  else box.innerHTML = '<span class="placeholder">a prévia aparece aqui</span>';
 }
 
 function currentMediaDraft() {
@@ -114,31 +122,37 @@ function currentSoundDraft() {
   return soundDraft;
 }
 
+function renderPreview() {
+  const box = el('mediaPreview');
+  box.innerHTML = '';
+  const node = buildMediaEl(currentMediaDraft());
+  if (node) box.appendChild(node);
+  else box.innerHTML = '<span class="placeholder">a prévia aparece aqui</span>';
+}
+
 el('fMediaUrl').addEventListener('input', renderPreview);
 
 el('fMediaFile').addEventListener('change', async e => {
   const f = e.target.files[0];
   if (!f) return;
-  if (f.size > 3 * 1024 * 1024) {
-    showToast('Arquivo grande demais (máx. ~3 MB). Tente um link.');
+  if (f.size > 900 * 1024) {
+    showToast('Arquivo grande demais para a nuvem. Use um link (URL).');
     e.target.value = '';
     return;
   }
-  const dataUrl = await fileToDataURL(f);
-  mediaDraft = { kind: 'file', type: guessType(f.name, f.type), value: dataUrl, name: f.name };
+  mediaDraft = { kind: 'file', type: guessType(f.name, f.type), value: await fileToDataURL(f), name: f.name };
   renderPreview();
 });
 
 el('fSoundFile').addEventListener('change', async e => {
   const f = e.target.files[0];
   if (!f) return;
-  if (f.size > 2 * 1024 * 1024) {
-    showToast('Áudio grande demais (máx. ~2 MB). Tente um link.');
+  if (f.size > 700 * 1024) {
+    showToast('Áudio grande demais para a nuvem. Use um link (URL).');
     e.target.value = '';
     return;
   }
-  const dataUrl = await fileToDataURL(f);
-  soundDraft = { kind: 'file', value: dataUrl, name: f.name };
+  soundDraft = { kind: 'file', value: await fileToDataURL(f), name: f.name };
   el('soundName').textContent = f.name;
 });
 
@@ -146,13 +160,12 @@ el('btnTestSound').addEventListener('click', () => {
   const s = currentSoundDraft();
   if (!s || !s.value) { showToast('Nenhum som escolhido ainda'); return; }
   const a = el('testAudio');
-  a.src = s.value;
-  a.currentTime = 0;
+  a.src = s.value; a.currentTime = 0;
   a.play().catch(() => showToast('Não consegui tocar esse som'));
 });
 
 /* ---------- Salvar ---------- */
-el('btnSave').addEventListener('click', () => {
+el('btnSave').addEventListener('click', async () => {
   const name = el('fName').value.trim();
   if (!name) { showToast('Dá um nome pro humor ♡'); el('fName').focus(); return; }
 
@@ -164,18 +177,24 @@ el('btnSave').addEventListener('click', () => {
     sound: currentSoundDraft(),
   };
 
-  if (editingId) {
-    Store.updateMood(editingId, payload);
-    showToast('Humor atualizado ✨');
-  } else {
-    Store.addMood(payload);
-    showToast('Humor criado 💗');
+  el('btnSave').disabled = true;
+  try {
+    if (editingId) {
+      await atualizarHumor(editingId, payload);
+      showToast('Humor atualizado ✨');
+    } else {
+      await criarHumor({ ...payload, order: moods.length });
+      showToast('Humor criado 💗');
+    }
+    resetForm();
+  } catch (e) {
+    console.error(e);
+    showToast('Não consegui salvar. Confira as regras do banco.');
   }
-  resetForm();
-  renderList();
+  el('btnSave').disabled = false;
 });
 
-/* ---------- Formulário: reset e edição ---------- */
+/* ---------- Formulário ---------- */
 function resetForm() {
   editingId = null;
   mediaDraft = null; soundDraft = null;
@@ -190,7 +209,7 @@ function resetForm() {
   el('fMediaFile').value = '';
   el('fSoundFile').value = '';
   el('soundName').textContent = '';
-  setTint(Store.TINTS[0]);
+  setTint(TINTS[0]);
   el('formTitle').textContent = 'Novo humor';
   el('formSub').textContent = 'Preencha os campos e salve. Depois é só editar quando quiser.';
   el('btnReset').hidden = true;
@@ -200,35 +219,31 @@ function resetForm() {
 el('btnReset').addEventListener('click', resetForm);
 
 function startEdit(id) {
-  const m = Store.getMood(id);
+  const m = moods.find(x => x.id === id);
   if (!m) return;
   editingId = id;
   el('fName').value = m.name;
   el('fEmoji').value = m.emoji || '';
   setTint(m.tint);
 
-  // mídia
   if (m.media && m.media.kind === 'url') {
     mediaKind = 'url'; setSegActive('segMedia', 'url');
     el('mediaUrlWrap').hidden = false; el('mediaFileWrap').hidden = true;
-    el('fMediaUrl').value = m.media.value;
-    mediaDraft = null;
+    el('fMediaUrl').value = m.media.value; mediaDraft = null;
   } else if (m.media) {
     mediaKind = 'file'; setSegActive('segMedia', 'file');
     el('mediaUrlWrap').hidden = true; el('mediaFileWrap').hidden = false;
-    el('fMediaUrl').value = '';
-    mediaDraft = m.media;
+    el('fMediaUrl').value = ''; mediaDraft = m.media;
   } else {
     mediaKind = 'url'; setSegActive('segMedia', 'url');
+    el('mediaUrlWrap').hidden = false; el('mediaFileWrap').hidden = true;
     el('fMediaUrl').value = ''; mediaDraft = null;
   }
 
-  // som
   if (m.sound && m.sound.kind === 'url') {
     soundKind = 'url'; setSegActive('segSound', 'url');
     el('soundUrlWrap').hidden = false; el('soundFileWrap').hidden = true;
-    el('fSoundUrl').value = m.sound.value;
-    soundDraft = null;
+    el('fSoundUrl').value = m.sound.value; soundDraft = null;
     el('soundName').textContent = '';
   } else if (m.sound) {
     soundKind = 'file'; setSegActive('segSound', 'file');
@@ -237,6 +252,7 @@ function startEdit(id) {
     el('soundName').textContent = m.sound.name || 'arquivo salvo';
   } else {
     soundKind = 'url'; setSegActive('segSound', 'url');
+    el('soundUrlWrap').hidden = false; el('soundFileWrap').hidden = true;
     el('fSoundUrl').value = ''; soundDraft = null; el('soundName').textContent = '';
   }
 
@@ -249,15 +265,24 @@ function startEdit(id) {
 
 /* ---------- Lista ---------- */
 function renderList() {
-  const moods = Store.getMoods();
   const list = el('moodList');
   list.innerHTML = '';
   el('countSub').textContent = moods.length
-    ? `${moods.length} humor${moods.length > 1 ? 'es' : ''} disponíve${moods.length > 1 ? 'is' : 'l'} na página inicial.`
-    : 'Nenhum humor ainda — crie o primeiro acima.';
+    ? `${moods.length} humor${moods.length > 1 ? 'es' : ''} disponíve${moods.length > 1 ? 'is' : 'l'} para vocês dois.`
+    : 'Nenhum humor ainda.';
 
   if (!moods.length) {
-    list.innerHTML = '<div class="empty-state"><span class="big">🌸</span>Sua lista está vaziazinha.</div>';
+    list.innerHTML = `
+      <div class="empty-state">
+        <span class="big">🌸</span>
+        Sua lista está vaziazinha.<br>
+        <button class="btn btn-sm" id="btnSeed" style="margin-top:14px">Criar os 6 humores sugeridos</button>
+      </div>`;
+    el('btnSeed').addEventListener('click', async e => {
+      e.target.disabled = true;
+      try { await criarHumoresSugeridos(); showToast('Prontinho 💗'); }
+      catch (err) { showToast('Não consegui criar'); console.error(err); }
+    });
     return;
   }
 
@@ -313,61 +338,39 @@ function renderList() {
   });
 }
 
-/* ---------- Confirmação de exclusão ---------- */
+/* ---------- Apagar ---------- */
 function askDelete(mood) {
   pendingDelete = mood.id;
   el('confirmTitle').textContent = `Apagar “${mood.name}”?`;
-  el('confirmText').textContent = 'O humor sai da página inicial. Os registros antigos no histórico continuam salvos.';
+  el('confirmText').textContent = 'O humor some para vocês dois. Os registros antigos no histórico continuam salvos.';
   el('confirmOverlay').hidden = false;
 }
 
 el('confirmNo').addEventListener('click', () => { pendingDelete = null; el('confirmOverlay').hidden = true; });
-el('confirmYes').addEventListener('click', () => {
+
+el('confirmYes').addEventListener('click', async () => {
   if (pendingDelete) {
-    Store.removeMood(pendingDelete);
-    if (editingId === pendingDelete) resetForm();
-    showToast('Humor apagado');
+    try {
+      await apagarHumor(pendingDelete);
+      if (editingId === pendingDelete) resetForm();
+      showToast('Humor apagado');
+    } catch (e) { showToast('Não consegui apagar'); console.error(e); }
   }
   pendingDelete = null;
   el('confirmOverlay').hidden = true;
-  renderList();
 });
 
-/* ---------- Backup ---------- */
-el('btnExport').addEventListener('click', () => {
-  const blob = new Blob([Store.exportAll()], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'humorometro-backup.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  showToast('Backup baixado 💾');
-});
-
-el('btnImport').addEventListener('click', () => el('importFile').click());
-el('importFile').addEventListener('change', async e => {
-  const f = e.target.files[0];
-  if (!f) return;
+/* ---------- Trazer dados antigos deste navegador ---------- */
+el('btnImportLocal').addEventListener('click', async () => {
+  const temAntigos = localStorage.getItem('humorometro.moods.v1');
+  if (!temAntigos) { showToast('Não achei dados antigos neste navegador'); return; }
+  el('btnImportLocal').disabled = true;
   try {
-    Store.importAll(await f.text());
-    showToast('Backup restaurado ✨');
-    resetForm();
-    renderList();
-  } catch (err) {
-    showToast('Arquivo inválido 😢');
+    const n = await importarDoNavegador();
+    showToast(`${n} itens enviados para a nuvem ✨`);
+  } catch (e) {
+    showToast('Não consegui importar');
+    console.error(e);
   }
-  e.target.value = '';
+  el('btnImportLocal').disabled = false;
 });
-
-/* ---------- Utilitário ---------- */
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
-
-/* ---------- Início ---------- */
-markActiveNav();
-buildPickers();
-resetForm();
-renderList();

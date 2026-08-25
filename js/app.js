@@ -2,22 +2,35 @@
    app.js — página inicial (escolher humor + enviar)
    ============================================================ */
 
+import { start, ouvirHumores, registrarHumor, salvarRecado, ouvirRegistros } from './cloud.js';
+import {
+  markActiveNav, showToast, escapeHtml, buildMediaEl, fmtDate, fmtTime,
+} from './ui.js';
+
+const grid     = document.getElementById('moodGrid');
+const btnSend  = document.getElementById('btnSend');
+const frame    = document.getElementById('stageFrame');
+const caption  = document.getElementById('stageCaption');
+const audio    = document.getElementById('moodAudio');
+const overlay  = document.getElementById('msgOverlay');
+const msgText  = document.getElementById('msgText');
+const msgEmoji = document.getElementById('msgEmoji');
+const lastNote = document.getElementById('lastNote');
+
+let moods = [];
 let selectedMoodId = null;
 let currentRecordId = null;
 
-const grid       = document.getElementById('moodGrid');
-const btnSend    = document.getElementById('btnSend');
-const frame      = document.getElementById('stageFrame');
-const caption    = document.getElementById('stageCaption');
-const audio      = document.getElementById('moodAudio');
-const overlay    = document.getElementById('msgOverlay');
-const msgText    = document.getElementById('msgText');
-const msgEmoji   = document.getElementById('msgEmoji');
-const lastNote   = document.getElementById('lastNote');
+markActiveNav();
 
-/* ---------- Desenha os cartões de humor ---------- */
+/* Só roda depois do login autorizado */
+start(() => {
+  ouvirHumores(lista => { moods = lista; renderMoods(); });
+  ouvirRegistros(updateLastNote);
+});
+
+/* ---------- Cartões de humor ---------- */
 function renderMoods() {
-  const moods = Store.getMoods();
   grid.innerHTML = '';
 
   if (!moods.length) {
@@ -44,6 +57,10 @@ function renderMoods() {
     chip.addEventListener('click', () => selectMood(mood.id));
     grid.appendChild(chip);
   });
+
+  // mantém a seleção se o humor ainda existir
+  if (selectedMoodId && moods.some(m => m.id === selectedMoodId)) selectMood(selectedMoodId);
+  else { selectedMoodId = null; btnSend.disabled = true; }
 }
 
 function selectMood(id) {
@@ -55,22 +72,27 @@ function selectMood(id) {
 }
 
 /* ---------- Enviar ---------- */
-btnSend.addEventListener('click', () => {
-  const mood = Store.getMood(selectedMoodId);
+btnSend.addEventListener('click', async () => {
+  const mood = moods.find(m => m.id === selectedMoodId);
   if (!mood) return;
 
-  const rec = Store.addRecord(mood);
-  currentRecordId = rec ? rec.id : null;
+  btnSend.disabled = true;
+  try {
+    currentRecordId = await registrarHumor(mood);
+  } catch (e) {
+    showToast('Não consegui salvar o humor 😢');
+    console.error(e);
+    btnSend.disabled = false;
+    return;
+  }
+  btnSend.disabled = false;
 
   showMedia(mood);
   playSound(mood);
   rainHearts(mood.emoji);
-
-  // Modal entra depois da animação da mídia
-  setTimeout(() => openModal(mood), 1300);
-
   frame.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  updateLastNote();
+
+  setTimeout(() => openModal(mood), 1300);
 });
 
 /* ---------- Mídia ---------- */
@@ -99,7 +121,6 @@ function showMedia(mood) {
   caption.textContent = `hoje você está ${mood.name.toLowerCase()} ${mood.emoji || ''}`;
 }
 
-/* ---------- Som ---------- */
 function playSound(mood) {
   audio.pause();
   if (!mood.sound || !mood.sound.value) return;
@@ -108,7 +129,6 @@ function playSound(mood) {
   audio.play().catch(err => console.warn('Som não pôde tocar:', err));
 }
 
-/* ---------- Chuvinha de coraçõezinhos ---------- */
 function rainHearts(emoji) {
   const layer = document.createElement('div');
   layer.className = 'confetti';
@@ -126,7 +146,7 @@ function rainHearts(emoji) {
   setTimeout(() => layer.remove(), 5000);
 }
 
-/* ---------- Modal da mensagem ---------- */
+/* ---------- Modal do recadinho ---------- */
 function openModal(mood) {
   msgEmoji.textContent = mood.emoji || '💌';
   msgText.value = '';
@@ -136,12 +156,14 @@ function openModal(mood) {
 
 function closeModal() { overlay.hidden = true; }
 
-document.getElementById('msgSave').addEventListener('click', () => {
+document.getElementById('msgSave').addEventListener('click', async () => {
   const txt = msgText.value.trim();
-  if (currentRecordId) Store.setRecordMessage(currentRecordId, txt);
   closeModal();
-  showToast(txt ? 'Recadinho guardado 💌' : 'Humor registrado ♡');
-  updateLastNote();
+  if (currentRecordId) {
+    try { await salvarRecado(currentRecordId, txt); }
+    catch (e) { showToast('Não consegui salvar o recadinho'); return; }
+  }
+  showToast(txt ? 'Recadinho enviado 💌' : 'Humor registrado ♡');
 });
 
 document.getElementById('msgSkip').addEventListener('click', () => {
@@ -152,22 +174,12 @@ document.getElementById('msgSkip').addEventListener('click', () => {
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.hidden) closeModal(); });
 
-/* ---------- Rodapé com o último registro ---------- */
-function updateLastNote() {
-  const recs = Store.getRecords();
-  if (!recs.length) { lastNote.textContent = ''; return; }
-  const r = recs[0];
-  lastNote.innerHTML = `último registro: <strong>${escapeHtml(r.moodName)}</strong> ${r.moodEmoji || ''} em ${fmtDate(r.at)} às ${fmtTime(r.at)} · <a href="historico.html" style="text-decoration:underline">ver histórico</a>`;
+/* ---------- Último registro ---------- */
+function updateLastNote(records) {
+  if (!records.length) { lastNote.textContent = ''; return; }
+  const r = records[0];
+  lastNote.innerHTML =
+    `último registro: <strong>${escapeHtml(r.moodName)}</strong> ${r.moodEmoji || ''} ` +
+    `em ${fmtDate(r.at)} às ${fmtTime(r.at)} · ` +
+    `<a href="historico.html" style="text-decoration:underline">ver histórico</a>`;
 }
-
-/* ---------- Segurança básica de texto ---------- */
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
-
-/* ---------- Início ---------- */
-markActiveNav();
-renderMoods();
-updateLastNote();

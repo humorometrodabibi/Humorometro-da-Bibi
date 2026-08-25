@@ -127,9 +127,7 @@
           <p class="card-sub" id="countSub"></p>
         </div>
         <div class="row-inline">
-          <button class="btn btn-sm btn-ghost" id="btnExport">⬇ Backup</button>
-          <button class="btn btn-sm btn-ghost" id="btnImport">⬆ Restaurar</button>
-          <input type="file" id="importFile" accept="application/json" hidden>
+          <button class="btn btn-sm btn-ghost" id="btnImportLocal" title="Envia para a nuvem os humores que estavam salvos só neste navegador">⬆ Trazer dados antigos</button>
         </div>
       </div>
       <div class="mood-list" id="moodList"></div>
@@ -151,7 +149,6 @@
   </div>
 </div>
 
-<script src="js/store.js"></script>
-<script src="js/inputs.js"></script>
+<script type="module" src="js/inputs.js"></script>
 </body>
 </html>

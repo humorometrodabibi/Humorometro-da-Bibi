@@ -2,53 +2,63 @@
    historico.js — acompanhamento dos humores registrados
    ============================================================ */
 
-const elx = id => document.getElementById(id);
+import { start, ouvirRegistros, apagarRegistro, apagarTodosRegistros } from './cloud.js';
+import {
+  markActiveNav, showToast, escapeHtml, buildMediaEl,
+  fmtDate, fmtTime, fmtDayLabel, dayKey,
+} from './ui.js';
+
+const el = id => document.getElementById(id);
+
+let records = [];
 let filter = 'all';
-let deleteTarget = null;   // id do registro, ou 'all'
+let deleteTarget = null;
+
+markActiveNav();
+
+start(() => {
+  ouvirRegistros(lista => { records = lista; refresh(); });
+});
+
+function refresh() { renderStats(); renderFilter(); renderTimeline(); }
 
 /* ---------- Estatísticas ---------- */
 function renderStats() {
-  const recs = Store.getRecords();
-  const box = elx('stats');
+  const box = el('stats');
+  if (!records.length) { box.innerHTML = ''; return; }
 
-  if (!recs.length) { box.innerHTML = ''; return; }
-
-  // humor mais frequente
   const counts = {};
-  recs.forEach(r => { counts[r.moodName] = (counts[r.moodName] || 0) + 1; });
+  records.forEach(r => { counts[r.moodName] = (counts[r.moodName] || 0) + 1; });
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
 
-  // registros nos últimos 7 dias
   const weekAgo = Date.now() - 7 * 86400000;
-  const week = recs.filter(r => new Date(r.at).getTime() >= weekAgo).length;
-
-  const withMsg = recs.filter(r => r.message && r.message.trim()).length;
+  const week = records.filter(r => new Date(r.at).getTime() >= weekAgo).length;
+  const withMsg = records.filter(r => r.message && r.message.trim()).length;
 
   box.innerHTML = `
-    <div class="stat"><div class="k">Registros</div><div class="v">${recs.length}</div></div>
+    <div class="stat"><div class="k">Registros</div><div class="v">${records.length}</div></div>
     <div class="stat"><div class="k">Últimos 7 dias</div><div class="v">${week}</div></div>
     <div class="stat"><div class="k">Humor mais frequente</div><div class="v">${escapeHtml(top[0])}</div></div>
-    <div class="stat"><div class="k">Pedidinhos</div><div class="v">${withMsg}</div></div>
-  `;
+    <div class="stat"><div class="k">Pedidinhos</div><div class="v">${withMsg}</div></div>`;
 }
 
-/* ---------- Filtro por humor ---------- */
+/* ---------- Filtro ---------- */
 function renderFilter() {
-  const sel = elx('filterMood');
-  const names = [...new Set(Store.getRecords().map(r => r.moodName))];
+  const sel = el('filterMood');
+  const names = [...new Set(records.map(r => r.moodName))];
   sel.innerHTML = '<option value="all">Todos os humores</option>' +
     names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  sel.value = filter;
+  sel.value = names.includes(filter) ? filter : 'all';
+  filter = sel.value;
 }
 
 /* ---------- Linha do tempo ---------- */
 function renderTimeline() {
-  const all = Store.getRecords();
-  const recs = filter === 'all' ? all : all.filter(r => r.moodName === filter);
-  const tl = elx('timeline');
+  const lista = filter === 'all' ? records : records.filter(r => r.moodName === filter);
+  const tl = el('timeline');
   tl.innerHTML = '';
 
-  if (!recs.length) {
+  if (!lista.length) {
     tl.innerHTML = `
       <div class="empty-state">
         <span class="big">🕰️</span>
@@ -59,7 +69,7 @@ function renderTimeline() {
   }
 
   let lastDay = null;
-  recs.forEach(r => {
+  lista.forEach(r => {
     const key = dayKey(r.at);
     if (key !== lastDay) {
       lastDay = key;
@@ -94,9 +104,9 @@ function renderTimeline() {
     del.title = 'Apagar registro';
     del.addEventListener('click', () => {
       deleteTarget = r.id;
-      elx('confirmTitle').textContent = 'Apagar este registro?';
-      elx('confirmText').textContent = `${r.moodName} · ${fmtDate(r.at)} às ${fmtTime(r.at)}`;
-      elx('confirmOverlay').hidden = false;
+      el('confirmTitle').textContent = 'Apagar este registro?';
+      el('confirmText').textContent = `${r.moodName} · ${fmtDate(r.at)} às ${fmtTime(r.at)}`;
+      el('confirmOverlay').hidden = false;
     });
     side.appendChild(del);
 
@@ -106,35 +116,24 @@ function renderTimeline() {
 }
 
 /* ---------- Eventos ---------- */
-elx('filterMood').addEventListener('change', e => { filter = e.target.value; renderTimeline(); });
+el('filterMood').addEventListener('change', e => { filter = e.target.value; renderTimeline(); });
 
-elx('btnClear').addEventListener('click', () => {
-  if (!Store.getRecords().length) { showToast('Não há registros para apagar'); return; }
+el('btnClear').addEventListener('click', () => {
+  if (!records.length) { showToast('Não há registros para apagar'); return; }
   deleteTarget = 'all';
-  elx('confirmTitle').textContent = 'Apagar todos os registros?';
-  elx('confirmText').textContent = 'Os humores cadastrados continuam; só o histórico é apagado.';
-  elx('confirmOverlay').hidden = false;
+  el('confirmTitle').textContent = 'Apagar todos os registros?';
+  el('confirmText').textContent = 'Os humores cadastrados continuam; só o histórico é apagado — para vocês dois.';
+  el('confirmOverlay').hidden = false;
 });
 
-elx('confirmNo').addEventListener('click', () => { deleteTarget = null; elx('confirmOverlay').hidden = true; });
+el('confirmNo').addEventListener('click', () => { deleteTarget = null; el('confirmOverlay').hidden = true; });
 
-elx('confirmYes').addEventListener('click', () => {
-  if (deleteTarget === 'all') { Store.clearRecords(); showToast('Histórico limpo'); }
-  else if (deleteTarget) { Store.removeRecord(deleteTarget); showToast('Registro apagado'); }
+el('confirmYes').addEventListener('click', async () => {
+  try {
+    if (deleteTarget === 'all') { await apagarTodosRegistros(); showToast('Histórico limpo'); }
+    else if (deleteTarget) { await apagarRegistro(deleteTarget); showToast('Registro apagado'); }
+  } catch (e) { showToast('Não consegui apagar'); console.error(e); }
   deleteTarget = null;
-  elx('confirmOverlay').hidden = true;
+  el('confirmOverlay').hidden = true;
   filter = 'all';
-  refresh();
 });
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
-
-function refresh() { renderStats(); renderFilter(); renderTimeline(); }
-
-/* ---------- Início ---------- */
-markActiveNav();
-refresh();
